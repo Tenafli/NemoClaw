@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cliEject = cliEject;
+exports.cliEject = void 0;
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const exec_js_1 = require("../blueprint/exec.js");
@@ -70,4 +70,5 @@ async function cliEject(opts) {
     logger.info("Eject complete. Host OpenClaw installation has been restored.");
     logger.info("You can now run 'openclaw' directly on your host.");
 }
+exports.cliEject = cliEject;
 //# sourceMappingURL=eject.js.map

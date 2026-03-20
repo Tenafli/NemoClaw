@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleSlashCommand = handleSlashCommand;
+exports.handleSlashCommand = void 0;
 const state_js_1 = require("../blueprint/state.js");
 const config_js_1 = require("../onboard/config.js");
 function handleSlashCommand(ctx, _api) {
@@ -18,6 +18,7 @@ function handleSlashCommand(ctx, _api) {
             return slashHelp();
     }
 }
+exports.handleSlashCommand = handleSlashCommand;
 function slashHelp() {
     return {
         text: [

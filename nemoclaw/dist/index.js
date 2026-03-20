@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPluginConfig = getPluginConfig;
-exports.default = register;
+exports.getPluginConfig = void 0;
 const cli_js_1 = require("./cli.js");
 const slash_js_1 = require("./commands/slash.js");
 const config_js_1 = require("./onboard/config.js");
@@ -81,6 +80,7 @@ function getPluginConfig(api) {
             : DEFAULT_PLUGIN_CONFIG.inferenceProvider,
     };
 }
+exports.getPluginConfig = getPluginConfig;
 // ---------------------------------------------------------------------------
 // Plugin entry point
 // ---------------------------------------------------------------------------
@@ -114,4 +114,5 @@ function register(api) {
     api.logger.info("  └─────────────────────────────────────────────────────┘");
     api.logger.info("");
 }
+exports.default = register;
 //# sourceMappingURL=index.js.map

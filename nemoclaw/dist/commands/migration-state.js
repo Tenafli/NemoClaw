@@ -5,12 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectHostOpenClaw = detectHostOpenClaw;
-exports.createSnapshotBundle = createSnapshotBundle;
-exports.cleanupSnapshotBundle = cleanupSnapshotBundle;
-exports.createArchiveFromDirectory = createArchiveFromDirectory;
-exports.loadSnapshotManifest = loadSnapshotManifest;
-exports.restoreSnapshotToHost = restoreSnapshotToHost;
+exports.restoreSnapshotToHost = exports.loadSnapshotManifest = exports.createArchiveFromDirectory = exports.cleanupSnapshotBundle = exports.createSnapshotBundle = exports.detectHostOpenClaw = void 0;
 const node_fs_1 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -331,6 +326,7 @@ function detectHostOpenClaw(env = process.env) {
         hasExternalConfig: configExists && !isWithinRoot(configPath, stateDir),
     };
 }
+exports.detectHostOpenClaw = detectHostOpenClaw;
 function copyDirectory(sourcePath, destinationPath) {
     (0, node_fs_1.cpSync)(sourcePath, destinationPath, {
         recursive: true,
@@ -454,11 +450,13 @@ function createSnapshotBundle(hostState, logger, options) {
         return null;
     }
 }
+exports.createSnapshotBundle = createSnapshotBundle;
 function cleanupSnapshotBundle(bundle) {
     if (bundle.temporary) {
         (0, node_fs_1.rmSync)(bundle.snapshotDir, { recursive: true, force: true });
     }
 }
+exports.cleanupSnapshotBundle = cleanupSnapshotBundle;
 async function createArchiveFromDirectory(sourceDir, archivePath) {
     (0, node_fs_1.mkdirSync)(node_path_1.default.dirname(archivePath), { recursive: true });
     await (0, tar_1.create)({
@@ -469,9 +467,11 @@ async function createArchiveFromDirectory(sourceDir, archivePath) {
         noMtime: true,
     }, ["."]);
 }
+exports.createArchiveFromDirectory = createArchiveFromDirectory;
 function loadSnapshotManifest(snapshotDir) {
     return readSnapshotManifest(snapshotDir);
 }
+exports.loadSnapshotManifest = loadSnapshotManifest;
 function restoreSnapshotToHost(snapshotDir, logger) {
     const manifest = readSnapshotManifest(snapshotDir);
     const snapshotStateDir = node_path_1.default.join(snapshotDir, "openclaw");
@@ -502,4 +502,5 @@ function restoreSnapshotToHost(snapshotDir, logger) {
         return false;
     }
 }
+exports.restoreSnapshotToHost = restoreSnapshotToHost;
 //# sourceMappingURL=migration-state.js.map

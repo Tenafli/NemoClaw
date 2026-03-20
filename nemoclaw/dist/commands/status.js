@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cliStatus = cliStatus;
+exports.cliStatus = void 0;
 const node_child_process_1 = require("node:child_process");
 const node_fs_1 = require("node:fs");
 const node_util_1 = require("node:util");
@@ -98,6 +98,7 @@ async function cliStatus(opts) {
         logger.info("  Run 'openclaw nemoclaw eject' to restore host installation.");
     }
 }
+exports.cliStatus = cliStatus;
 async function getSandboxStatus(sandboxName, insideSandbox) {
     if (insideSandbox) {
         return { name: sandboxName, running: false, uptime: null, insideSandbox: true };

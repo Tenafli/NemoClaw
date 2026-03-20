@@ -2,11 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.describeOnboardEndpoint = describeOnboardEndpoint;
-exports.describeOnboardProvider = describeOnboardProvider;
-exports.loadOnboardConfig = loadOnboardConfig;
-exports.saveOnboardConfig = saveOnboardConfig;
-exports.clearOnboardConfig = clearOnboardConfig;
+exports.clearOnboardConfig = exports.saveOnboardConfig = exports.loadOnboardConfig = exports.describeOnboardProvider = exports.describeOnboardEndpoint = void 0;
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const CONFIG_DIR = (0, node_path_1.join)(process.env.HOME ?? "/tmp", ".nemoclaw");
@@ -16,6 +12,7 @@ function describeOnboardEndpoint(config) {
     }
     return `${config.endpointType} (${config.endpointUrl})`;
 }
+exports.describeOnboardEndpoint = describeOnboardEndpoint;
 function describeOnboardProvider(config) {
     if (config.providerLabel) {
         return config.providerLabel;
@@ -37,6 +34,7 @@ function describeOnboardProvider(config) {
             return "Unknown";
     }
 }
+exports.describeOnboardProvider = describeOnboardProvider;
 let configDirCreated = false;
 function ensureConfigDir() {
     if (configDirCreated)
@@ -57,14 +55,17 @@ function loadOnboardConfig() {
     }
     return JSON.parse((0, node_fs_1.readFileSync)(path, "utf-8"));
 }
+exports.loadOnboardConfig = loadOnboardConfig;
 function saveOnboardConfig(config) {
     ensureConfigDir();
     (0, node_fs_1.writeFileSync)(configPath(), JSON.stringify(config, null, 2));
 }
+exports.saveOnboardConfig = saveOnboardConfig;
 function clearOnboardConfig() {
     const path = configPath();
     if ((0, node_fs_1.existsSync)(path)) {
         (0, node_fs_1.unlinkSync)(path);
     }
 }
+exports.clearOnboardConfig = clearOnboardConfig;
 //# sourceMappingURL=config.js.map

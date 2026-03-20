@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectHostOpenClaw = void 0;
-exports.cliMigrate = cliMigrate;
+exports.cliMigrate = exports.detectHostOpenClaw = void 0;
 const node_child_process_1 = require("node:child_process");
 const node_path_1 = require("node:path");
 const resolve_js_1 = require("../blueprint/resolve.js");
@@ -150,6 +149,7 @@ async function cliMigrate(opts) {
         logger.info("  openclaw nemoclaw eject");
     }
 }
+exports.cliMigrate = cliMigrate;
 async function buildMigrationArchives(bundle) {
     await (0, migration_state_js_1.createArchiveFromDirectory)(bundle.preparedStateDir, stateArchivePath(bundle));
     for (const root of bundle.manifest.externalRoots) {

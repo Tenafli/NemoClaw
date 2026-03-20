@@ -2,9 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promptInput = promptInput;
-exports.promptConfirm = promptConfirm;
-exports.promptSelect = promptSelect;
+exports.promptSelect = exports.promptConfirm = exports.promptInput = void 0;
 const promises_1 = require("node:readline/promises");
 const node_process_1 = require("node:process");
 async function promptInput(question, defaultValue) {
@@ -19,6 +17,7 @@ async function promptInput(question, defaultValue) {
         rl.close();
     }
 }
+exports.promptInput = promptInput;
 async function promptConfirm(question, defaultYes = true) {
     const rl = (0, promises_1.createInterface)({ input: node_process_1.stdin, output: node_process_1.stdout });
     const hint = defaultYes ? "(Y/n)" : "(y/N)";
@@ -33,6 +32,7 @@ async function promptConfirm(question, defaultYes = true) {
         rl.close();
     }
 }
+exports.promptConfirm = promptConfirm;
 async function promptSelect(question, options, defaultIndex = 0) {
     const rl = (0, promises_1.createInterface)({ input: node_process_1.stdin, output: node_process_1.stdout });
     try {
@@ -60,4 +60,5 @@ async function promptSelect(question, options, defaultIndex = 0) {
         rl.close();
     }
 }
+exports.promptSelect = promptSelect;
 //# sourceMappingURL=prompt.js.map

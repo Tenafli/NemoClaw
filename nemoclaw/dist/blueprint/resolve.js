@@ -2,11 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCacheDir = getCacheDir;
-exports.getCachedBlueprintPath = getCachedBlueprintPath;
-exports.isCached = isCached;
-exports.readCachedManifest = readCachedManifest;
-exports.resolveBlueprint = resolveBlueprint;
+exports.resolveBlueprint = exports.readCachedManifest = exports.isCached = exports.getCachedBlueprintPath = exports.getCacheDir = void 0;
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const fetch_js_1 = require("./fetch.js");
@@ -14,13 +10,16 @@ const CACHE_DIR = (0, node_path_1.join)(process.env.HOME ?? "/tmp", ".nemoclaw",
 function getCacheDir() {
     return CACHE_DIR;
 }
+exports.getCacheDir = getCacheDir;
 function getCachedBlueprintPath(version) {
     return (0, node_path_1.join)(CACHE_DIR, version);
 }
+exports.getCachedBlueprintPath = getCachedBlueprintPath;
 function isCached(version) {
     const manifestPath = (0, node_path_1.join)(getCachedBlueprintPath(version), "blueprint.yaml");
     return (0, node_fs_1.existsSync)(manifestPath);
 }
+exports.isCached = isCached;
 function readCachedManifest(version) {
     const manifestPath = (0, node_path_1.join)(getCachedBlueprintPath(version), "blueprint.yaml");
     if (!(0, node_fs_1.existsSync)(manifestPath))
@@ -29,6 +28,7 @@ function readCachedManifest(version) {
     // Minimal YAML parsing for the manifest header
     return parseManifestHeader(raw);
 }
+exports.readCachedManifest = readCachedManifest;
 function parseManifestHeader(raw) {
     const get = (key) => {
         const match = raw.match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
@@ -60,5 +60,6 @@ async function resolveBlueprint(config) {
     // Fetch from registry
     return (0, fetch_js_1.fetchBlueprint)(config.blueprintRegistry, version);
 }
+exports.resolveBlueprint = resolveBlueprint;
 // fetchBlueprint is imported from ./fetch.ts
 //# sourceMappingURL=resolve.js.map

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cliConnect = cliConnect;
+exports.cliConnect = void 0;
 const node_child_process_1 = require("node:child_process");
 async function cliConnect(opts) {
     const { sandbox: sandboxName, logger } = opts;
@@ -30,4 +30,5 @@ async function cliConnect(opts) {
         logger.info("Run 'openclaw nemoclaw status' to check available sandboxes.");
     }
 }
+exports.cliConnect = cliConnect;
 //# sourceMappingURL=connect.js.map

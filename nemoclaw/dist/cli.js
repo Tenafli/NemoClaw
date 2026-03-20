@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerCliCommands = registerCliCommands;
+exports.registerCliCommands = void 0;
 const index_js_1 = require("./index.js");
 const status_js_1 = require("./commands/status.js");
 const migrate_js_1 = require("./commands/migrate.js");
@@ -112,4 +112,5 @@ function registerCliCommands(ctx, api) {
         });
     });
 }
+exports.registerCliCommands = registerCliCommands;
 //# sourceMappingURL=cli.js.map

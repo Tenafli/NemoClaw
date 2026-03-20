@@ -2,11 +2,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Start NemoClaw auxiliary services: Telegram bridge
+# Start NemoClaw auxiliary services: Telegram bridge, Slack bridge,
 # and cloudflared tunnel for public access.
 #
 # Usage:
 #   TELEGRAM_BOT_TOKEN=... ./scripts/start-services.sh         # start all
+#   SLACK_BOT_TOKEN=... SLACK_APP_TOKEN=... ./scripts/start-services.sh
 #   ./scripts/start-services.sh --status                       # check status
 #   ./scripts/start-services.sh --stop                         # stop all
 #   ./scripts/start-services.sh --sandbox mybox                # start for specific sandbox
@@ -94,7 +95,7 @@ stop_service() {
 show_status() {
   mkdir -p "$PIDDIR"
   echo ""
-  for svc in telegram-bridge cloudflared; do
+  for svc in telegram-bridge slack-bridge cloudflared; do
     if is_running "$svc"; then
       echo -e "  ${GREEN}●${NC} $svc  (PID $(cat "$PIDDIR/$svc.pid"))"
     else
@@ -115,6 +116,7 @@ show_status() {
 do_stop() {
   mkdir -p "$PIDDIR"
   stop_service cloudflared
+  stop_service slack-bridge
   stop_service telegram-bridge
   info "All services stopped."
 }
@@ -122,9 +124,9 @@ do_stop() {
 do_start() {
   [ -n "${NVIDIA_API_KEY:-}" ] || fail "NVIDIA_API_KEY required"
 
-  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
-    warn "TELEGRAM_BOT_TOKEN not set — Telegram bridge will not start."
-    warn "Create a bot via @BotFather on Telegram and set the token."
+  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+    warn "No messaging tokens set — no bridges will start."
+    warn "Set TELEGRAM_BOT_TOKEN and/or SLACK_BOT_TOKEN + SLACK_APP_TOKEN."
   fi
 
   command -v node > /dev/null || fail "node not found. Install Node.js first."
@@ -144,7 +146,15 @@ do_start() {
       node "$REPO_DIR/scripts/telegram-bridge.js"
   fi
 
-  # 3. cloudflared tunnel
+  # Slack bridge (only if both tokens provided)
+  if [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -n "${SLACK_APP_TOKEN:-}" ]; then
+    SANDBOX_NAME="$SANDBOX_NAME" start_service slack-bridge \
+      node "$REPO_DIR/scripts/slack-bridge.js"
+  elif [ -n "${SLACK_BOT_TOKEN:-}" ] && [ -z "${SLACK_APP_TOKEN:-}" ]; then
+    warn "SLACK_APP_TOKEN not set — Slack bridge requires both SLACK_BOT_TOKEN and SLACK_APP_TOKEN."
+  fi
+
+  # cloudflared tunnel
   if command -v cloudflared > /dev/null 2>&1; then
     start_service cloudflared \
       cloudflared tunnel --url "http://localhost:$DASHBOARD_PORT"
@@ -184,6 +194,14 @@ do_start() {
     echo "  │  Telegram:    bridge running                        │"
   else
     echo "  │  Telegram:    not started (no token)                │"
+  fi
+
+  if is_running slack-bridge; then
+    echo "  │  Slack:       bridge running                        │"
+  elif [ -n "${SLACK_BOT_TOKEN:-}" ]; then
+    echo "  │  Slack:       not started (missing app token)       │"
+  else
+    echo "  │  Slack:       not started (no token)                │"
   fi
 
   echo "  │                                                     │"

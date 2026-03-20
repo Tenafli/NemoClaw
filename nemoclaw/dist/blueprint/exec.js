@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.execBlueprint = execBlueprint;
+exports.execBlueprint = void 0;
 const node_child_process_1 = require("node:child_process");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
@@ -68,4 +68,5 @@ async function execBlueprint(options, logger) {
         });
     });
 }
+exports.execBlueprint = execBlueprint;
 //# sourceMappingURL=exec.js.map

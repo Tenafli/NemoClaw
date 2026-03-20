@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyBlueprintDigest = verifyBlueprintDigest;
-exports.checkCompatibility = checkCompatibility;
+exports.checkCompatibility = exports.verifyBlueprintDigest = void 0;
 const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
@@ -20,6 +19,7 @@ function verifyBlueprintDigest(blueprintPath, manifest) {
         errors,
     };
 }
+exports.verifyBlueprintDigest = verifyBlueprintDigest;
 function checkCompatibility(manifest, openshellVersion, openclawVersion) {
     const errors = [];
     if (manifest.minOpenShellVersion &&
@@ -32,6 +32,7 @@ function checkCompatibility(manifest, openshellVersion, openclawVersion) {
     }
     return errors;
 }
+exports.checkCompatibility = checkCompatibility;
 function satisfiesMinVersion(actual, minimum) {
     const aParts = actual.split(".").map(Number);
     const mParts = minimum.split(".").map(Number);

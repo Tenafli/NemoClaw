@@ -2,9 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fetchBlueprint = fetchBlueprint;
-exports.resolveLatestVersion = resolveLatestVersion;
-exports.downloadAndCache = downloadAndCache;
+exports.downloadAndCache = exports.resolveLatestVersion = exports.fetchBlueprint = void 0;
 const resolve_js_1 = require("./resolve.js");
 /**
  * Fetch a blueprint artifact from a remote registry and cache it locally.
@@ -24,6 +22,7 @@ function fetchBlueprint(registry, version) {
         `Registry: ${registry}, Version: ${version}. ` +
         `Place blueprint files in ${(0, resolve_js_1.getCacheDir)()}/<version>/ for local development.`));
 }
+exports.fetchBlueprint = fetchBlueprint;
 /**
  * Resolve a "latest" version tag to a concrete version string by querying
  * the registry's tag list or release API.
@@ -33,6 +32,7 @@ async function resolveLatestVersion(registry) {
     void registry;
     throw new Error("Latest version resolution not yet implemented.");
 }
+exports.resolveLatestVersion = resolveLatestVersion;
 /**
  * Download and extract a blueprint tarball into the local cache directory.
  * Returns the local path where the blueprint was extracted.
@@ -47,4 +47,5 @@ async function downloadAndCache(registry, version) {
     }
     return { localPath, manifest };
 }
+exports.downloadAndCache = downloadAndCache;
 //# sourceMappingURL=fetch.js.map

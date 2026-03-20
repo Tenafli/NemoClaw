@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cliOnboard = cliOnboard;
+exports.cliOnboard = void 0;
 const node_child_process_1 = require("node:child_process");
 const config_js_1 = require("../onboard/config.js");
 const prompt_js_1 = require("../onboard/prompt.js");
@@ -448,4 +448,5 @@ async function cliOnboard(opts) {
     logger.info("  openclaw nemoclaw launch     # Bootstrap sandbox");
     logger.info("  openclaw nemoclaw status     # Check configuration");
 }
+exports.cliOnboard = cliOnboard;
 //# sourceMappingURL=onboard.js.map

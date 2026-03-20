@@ -2,14 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateApiKey = validateApiKey;
-exports.maskApiKey = maskApiKey;
+exports.maskApiKey = exports.validateApiKey = void 0;
 async function validateApiKey(apiKey, endpointUrl) {
     const url = `${endpointUrl.replace(/\/+$/, "")}/models`;
     const controller = new AbortController();
     const timeout = setTimeout(() => {
         controller.abort();
-    }, 10_000);
+    }, 10000);
     try {
         const response = await fetch(url, {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -39,6 +38,7 @@ async function validateApiKey(apiKey, endpointUrl) {
         clearTimeout(timeout);
     }
 }
+exports.validateApiKey = validateApiKey;
 function maskApiKey(apiKey) {
     if (apiKey.length <= 8)
         return "****";
@@ -48,4 +48,5 @@ function maskApiKey(apiKey) {
     }
     return `****${last4}`;
 }
+exports.maskApiKey = maskApiKey;
 //# sourceMappingURL=validate.js.map

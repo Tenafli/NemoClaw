@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cliLaunch = cliLaunch;
+exports.cliLaunch = void 0;
 const node_child_process_1 = require("node:child_process");
 const resolve_js_1 = require("../blueprint/resolve.js");
 const verify_js_1 = require("../blueprint/verify.js");
@@ -92,6 +92,7 @@ async function cliLaunch(opts) {
     logger.info("  openclaw nemoclaw status     # Check health");
     logger.info("  openshell term               # Monitor network egress");
 }
+exports.cliLaunch = cliLaunch;
 function getOpenshellVersion() {
     try {
         return (0, node_child_process_1.execSync)("openshell --version", { encoding: "utf-8" }).trim();
