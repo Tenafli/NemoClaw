@@ -110,14 +110,16 @@ function buildSandboxConfigSyncScript(selectionConfig) {
   const cloudEntry = Object.values(CLOUD_PROVIDERS).find(
     (cp) => cp.providerName === providerType
   );
+  // Look up model metadata from the provider registry
+  const registeredModel = cloudEntry?.models?.find((m) => m.id === selectionConfig.model);
   const modelEntry = {
     id: selectionConfig.model,
     name: selectionConfig.model,
-    reasoning: false,
+    reasoning: registeredModel?.reasoning ?? false,
     input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 131072,
-    maxTokens: 4096,
+    contextWindow: registeredModel?.contextWindow ?? 131072,
+    maxTokens: registeredModel?.maxTokens ?? 4096,
   };
   if (cloudEntry?.modelCompat) {
     modelEntry.compat = cloudEntry.modelCompat;

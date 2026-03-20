@@ -37,9 +37,9 @@ const CLOUD_PROVIDERS = {
     // Gemini rejects unsupported OpenAI params like "store"
     modelCompat: { supportsStore: false },
     models: [
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-      { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", reasoning: true, contextWindow: 1048576, maxTokens: 65536 },
+      { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", reasoning: true, contextWindow: 1048576, maxTokens: 65536 },
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", reasoning: true, contextWindow: 1048576, maxTokens: 65536 },
     ],
   },
 };
