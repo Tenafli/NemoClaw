@@ -11,6 +11,33 @@ const CLOUD_MODEL_OPTIONS = [
   { id: "qwen/qwen3.5-397b-a17b", label: "Qwen3.5 397B A17B" },
   { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
 ];
+
+const CLOUD_PROVIDERS = {
+  cloud: {
+    key: "cloud",
+    label: "NVIDIA Cloud API (build.nvidia.com)",
+    providerName: "nvidia-nim",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    credentialKey: "NVIDIA_API_KEY",
+    credentialPrompt: "Enter your NVIDIA API key",
+    credentialHint: "Get one from https://build.nvidia.com",
+    models: CLOUD_MODEL_OPTIONS,
+  },
+  gemini: {
+    key: "gemini",
+    label: "Google AI Studio (Gemini)",
+    providerName: "gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    credentialKey: "GEMINI_API_KEY",
+    credentialPrompt: "Enter your Google AI Studio API key",
+    credentialHint: "Get one from https://aistudio.google.com",
+    models: [
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    ],
+  },
+};
 const DEFAULT_ROUTE_PROFILE = "inference-local";
 const DEFAULT_ROUTE_CREDENTIAL_ENV = "OPENAI_API_KEY";
 const MANAGED_PROVIDER_ID = "inference";
@@ -51,8 +78,25 @@ function getProviderSelectionConfig(provider, model) {
         provider,
         providerLabel: "Local Ollama",
       };
-    default:
+    default: {
+      // Check cloud providers registry for a match by providerName
+      const cloudEntry = Object.values(CLOUD_PROVIDERS).find(
+        (cp) => cp.providerName === provider
+      );
+      if (cloudEntry) {
+        return {
+          endpointType: "custom",
+          endpointUrl: INFERENCE_ROUTE_URL,
+          ncpPartner: null,
+          model: model || cloudEntry.models[0].id,
+          profile: DEFAULT_ROUTE_PROFILE,
+          credentialEnv: cloudEntry.credentialKey,
+          provider,
+          providerLabel: cloudEntry.label,
+        };
+      }
       return null;
+    }
   }
 }
 
@@ -64,6 +108,7 @@ function getOpenClawPrimaryModel(provider, model) {
 
 module.exports = {
   CLOUD_MODEL_OPTIONS,
+  CLOUD_PROVIDERS,
   DEFAULT_CLOUD_MODEL,
   DEFAULT_OLLAMA_MODEL,
   DEFAULT_ROUTE_CREDENTIAL_ENV,

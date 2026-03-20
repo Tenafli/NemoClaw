@@ -18,6 +18,17 @@ RUN groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbo
 # Install OpenClaw CLI
 RUN npm install -g openclaw@2026.3.11
 
+# Patch OpenClaw fetch-guard to skip DNS pinning in TRUSTED_ENV_PROXY mode.
+# The fetch-guard refuses to use the OpenShell gateway proxy because DNS
+# pinning rejects the proxy's resolved address.  In TRUSTED_ENV_PROXY mode
+# we delegate to EnvHttpProxyAgent instead.
+# Remove when upstream openclaw/openclaw#396 is fixed.
+RUN find /usr/local/lib/node_modules/openclaw -name "*.js" \
+      -exec grep -l "TRUSTED_ENV_PROXY" {} \; | \
+    xargs -I{} sed -i \
+      's/const pinned=await resolvePinnedHostnameWithPolicy/if(mode===GUARDED_FETCH_MODE.TRUSTED_ENV_PROXY\&\&hasProxyEnvConfigured()){dispatcher=new EnvHttpProxyAgent()}else{const pinned=await resolvePinnedHostnameWithPolicy/' \
+      {}
+
 # Install PyYAML for blueprint runner
 RUN pip3 install --break-system-packages pyyaml
 

@@ -18,6 +18,7 @@ const {
 } = require("./local-inference");
 const {
   CLOUD_MODEL_OPTIONS,
+  CLOUD_PROVIDERS,
   DEFAULT_CLOUD_MODEL,
   DEFAULT_OLLAMA_MODEL,
   getOpenClawPrimaryModel,
@@ -28,7 +29,7 @@ const {
   isUnsupportedMacosRuntime,
   shouldPatchCoredns,
 } = require("./platform");
-const { prompt, ensureApiKey, getCredential } = require("./credentials");
+const { prompt, ensureApiKey, getCredential, saveCredential } = require("./credentials");
 const registry = require("./registry");
 const nim = require("./nim");
 const policies = require("./policies");
@@ -94,14 +95,15 @@ function pythonLiteralJson(value) {
 }
 
 function buildSandboxConfigSyncScript(selectionConfig) {
-  const providerType =
+  const providerType = selectionConfig.provider || (
     selectionConfig.profile === "inference-local"
       ? selectionConfig.model === DEFAULT_OLLAMA_MODEL
         ? "ollama-local"
         : "nvidia-nim"
       : selectionConfig.endpointType === "vllm"
         ? "vllm-local"
-        : "nvidia-nim";
+        : "nvidia-nim"
+  );
   const primaryModel = getOpenClawPrimaryModel(providerType, selectionConfig.model);
   const providerKey = "inference";
   const providerConfig = {
@@ -152,17 +154,72 @@ exit
 `.trim();
 }
 
-async function promptCloudModel() {
+async function promptCloudProvider() {
   console.log("");
-  console.log("  Cloud models:");
-  CLOUD_MODEL_OPTIONS.forEach((option, index) => {
+  console.log("  Cloud providers:");
+  const providerArray = Object.values(CLOUD_PROVIDERS);
+  providerArray.forEach((provider, index) => {
+    console.log(`    ${index + 1}) ${provider.label}`);
+  });
+  console.log("");
+
+  const choice = await prompt("  Choose provider [1]: ");
+  const index = parseInt(choice || "1", 10) - 1;
+  const selected = providerArray[index] || providerArray[0];
+  return selected.key;
+}
+
+async function promptCloudModel(providerKey) {
+  const provider = CLOUD_PROVIDERS[providerKey];
+  if (!provider) return DEFAULT_CLOUD_MODEL;
+
+  const models = provider.models;
+  console.log("");
+  console.log(`  ${provider.label} models:`);
+  models.forEach((option, index) => {
     console.log(`    ${index + 1}) ${option.label} (${option.id})`);
   });
   console.log("");
 
   const choice = await prompt("  Choose model [1]: ");
   const index = parseInt(choice || "1", 10) - 1;
-  return (CLOUD_MODEL_OPTIONS[index] || CLOUD_MODEL_OPTIONS[0]).id;
+  return (models[index] || models[0]).id;
+}
+
+async function ensureCloudApiKey(cloudProvider) {
+  const envKey = cloudProvider.credentialKey;
+  let key = getCredential(envKey);
+  if (key) {
+    process.env[envKey] = key;
+    return;
+  }
+
+  // For NVIDIA, delegate to the existing ensureApiKey flow
+  if (envKey === "NVIDIA_API_KEY") {
+    await ensureApiKey();
+    return;
+  }
+
+  console.log("");
+  console.log(`  ┌─────────────────────────────────────────────────────────────────┐`);
+  console.log(`  │  ${cloudProvider.credentialPrompt.padEnd(62)}│`);
+  console.log(`  │                                                                 │`);
+  console.log(`  │  ${cloudProvider.credentialHint.padEnd(62)}│`);
+  console.log(`  └─────────────────────────────────────────────────────────────────┘`);
+  console.log("");
+
+  key = await prompt(`  ${envKey}: `);
+
+  if (!key) {
+    console.error(`  ${envKey} is required.`);
+    process.exit(1);
+  }
+
+  saveCredential(envKey, key);
+  process.env[envKey] = key;
+  console.log("");
+  console.log("  Key saved to ~/.nemoclaw/credentials.json (mode 600)");
+  console.log("");
 }
 
 async function promptOllamaModel() {
@@ -239,14 +296,23 @@ function isSafeModelId(value) {
   return /^[A-Za-z0-9._:/-]+$/.test(value);
 }
 
+function isCloudProvider(providerKey) {
+  return CLOUD_PROVIDERS.hasOwnProperty(providerKey);
+}
+
+function getCredentialEnvVar(providerKey) {
+  const provider = CLOUD_PROVIDERS[providerKey];
+  return provider ? provider.credentialKey : null;
+}
+
 function getNonInteractiveProvider() {
   const providerKey = (process.env.NEMOCLAW_PROVIDER || "").trim().toLowerCase();
   if (!providerKey) return null;
 
-  const validProviders = new Set(["cloud", "ollama", "vllm", "nim"]);
+  const validProviders = new Set([...Object.keys(CLOUD_PROVIDERS), "ollama", "vllm", "nim"]);
   if (!validProviders.has(providerKey)) {
     console.error(`  Unsupported NEMOCLAW_PROVIDER: ${providerKey}`);
-    console.error("  Valid values: cloud, ollama, vllm, nim");
+    console.error(`  Valid values: ${Array.from(validProviders).join(", ")}`);
     process.exit(1);
   }
 
@@ -402,8 +468,8 @@ async function startGateway(gpu) {
 
 // ── Step 3: Sandbox ──────────────────────────────────────────────
 
-async function createSandbox(gpu) {
-  step(3, 7, "Creating sandbox");
+async function createSandbox(gpu, providerName) {
+  step(4, 7, "Creating sandbox");
 
   const nameAnswer = await promptOrDefault(
     "  Sandbox name (lowercase, numbers, hyphens) [my-assistant]: ",
@@ -460,13 +526,19 @@ async function createSandbox(gpu) {
     `--name "${sandboxName}"`,
     `--policy "${basePolicyPath}"`,
   ];
+  if (providerName) {
+    createArgs.push(`--provider "${providerName}"`);
+  }
   // --gpu is intentionally omitted. See comment in startGateway().
 
   console.log(`  Creating sandbox '${sandboxName}' (this takes a few minutes on first run)...`);
   const chatUiUrl = process.env.CHAT_UI_URL || 'http://127.0.0.1:18789';
   const envArgs = [`CHAT_UI_URL=${chatUiUrl}`];
-  if (process.env.NVIDIA_API_KEY) {
-    envArgs.push(`NVIDIA_API_KEY=${process.env.NVIDIA_API_KEY}`);
+  // Pass any cloud provider API keys that are set
+  for (const cp of Object.values(CLOUD_PROVIDERS)) {
+    if (process.env[cp.credentialKey]) {
+      envArgs.push(`${cp.credentialKey}=${process.env[cp.credentialKey]}`);
+    }
   }
 
   // Run without piping through awk — the pipe masked non-zero exit codes
@@ -539,12 +611,12 @@ async function createSandbox(gpu) {
 
 // ── Step 4: NIM ──────────────────────────────────────────────────
 
-async function setupNim(sandboxName, gpu) {
-  step(4, 7, "Configuring inference (NIM)");
+async function setupNim(gpu) {
+  step(3, 7, "Configuring inference");
 
   let model = null;
   let provider = "nvidia-nim";
-  let nimContainer = null;
+  let nimPending = false;
 
   // Detect local inference options
   const hasOllama = !!runCapture("command -v ollama", { ignoreError: true });
@@ -552,16 +624,19 @@ async function setupNim(sandboxName, gpu) {
   const vllmRunning = !!runCapture("curl -sf http://localhost:8000/v1/models 2>/dev/null", { ignoreError: true });
   const requestedProvider = isNonInteractive() ? getNonInteractiveProvider() : null;
   const requestedModel = isNonInteractive() ? getNonInteractiveModel(requestedProvider || "cloud") : null;
-  // Build options list — only show local options with NEMOCLAW_EXPERIMENTAL=1
+  // Build options list — cloud providers from registry, local options with NEMOCLAW_EXPERIMENTAL=1
   const options = [];
   if (EXPERIMENTAL && gpu && gpu.nimCapable) {
     options.push({ key: "nim", label: "Local NIM container (NVIDIA GPU) [experimental]" });
   }
-  options.push({
-    key: "cloud",
-    label:
-      "NVIDIA Cloud API (build.nvidia.com)" +
-      (!ollamaRunning && !(EXPERIMENTAL && vllmRunning) ? " (recommended)" : ""),
+  // Add all registered cloud providers
+  const cloudProviderEntries = Object.values(CLOUD_PROVIDERS);
+  cloudProviderEntries.forEach((cp, idx) => {
+    const recommended = idx === 0 && !ollamaRunning && !(EXPERIMENTAL && vllmRunning);
+    options.push({
+      key: cp.key,
+      label: cp.label + (recommended ? " (recommended)" : ""),
+    });
   });
   if (hasOllama || ollamaRunning) {
     options.push({
@@ -652,17 +727,10 @@ async function setupNim(sandboxName, gpu) {
         console.log(`  Pulling NIM image for ${model}...`);
         nim.pullNimImage(model);
 
-        console.log("  Starting NIM container...");
-        nimContainer = nim.startNimContainer(sandboxName, model);
-
-        console.log("  Waiting for NIM to become healthy...");
-        if (!nim.waitForNimHealth()) {
-          console.error("  NIM failed to start. Falling back to cloud API.");
-          model = null;
-          nimContainer = null;
-        } else {
-          provider = "vllm-local";
-        }
+        // NIM container will be started after sandbox creation
+        // since sandboxName is not yet known at this point.
+        nimPending = true;
+        provider = "vllm-local";
       }
     } else if (selected.key === "ollama") {
       if (!ollamaRunning) {
@@ -694,13 +762,32 @@ async function setupNim(sandboxName, gpu) {
       console.log("  ✓ Using existing vLLM on localhost:8000");
       provider = "vllm-local";
       model = "vllm-local";
+    } else if (isCloudProvider(selected.key)) {
+      // A cloud provider was explicitly selected (e.g. gemini)
+      const cp = CLOUD_PROVIDERS[selected.key];
+      provider = cp.providerName;
+
+      if (isNonInteractive()) {
+        const credEnv = cp.credentialKey;
+        if (!process.env[credEnv]) {
+          console.error(`  ${credEnv} is required for ${cp.label} in non-interactive mode.`);
+          console.error(`  Set it via: ${credEnv}=... nemoclaw onboard --non-interactive`);
+          process.exit(1);
+        }
+      } else {
+        await ensureCloudApiKey(cp);
+        model = model || (await promptCloudModel(selected.key));
+      }
+      model = model || requestedModel || cp.models[0].id;
+      console.log(`  Using ${cp.label} with model: ${model}`);
     }
     // else: cloud — fall through to default below
   }
 
-  if (provider === "nvidia-nim") {
+  // Default: NVIDIA cloud if no provider was explicitly chosen
+  if (provider === "nvidia-nim" && !model) {
+    const cp = CLOUD_PROVIDERS.cloud;
     if (isNonInteractive()) {
-      // In non-interactive mode, NVIDIA_API_KEY must be set via env var
       if (!process.env.NVIDIA_API_KEY) {
         console.error("  NVIDIA_API_KEY is required for cloud provider in non-interactive mode.");
         console.error("  Set it via: NVIDIA_API_KEY=nvapi-... nemoclaw onboard --non-interactive");
@@ -708,32 +795,38 @@ async function setupNim(sandboxName, gpu) {
       }
     } else {
       await ensureApiKey();
-      model = model || (await promptCloudModel()) || DEFAULT_CLOUD_MODEL;
+      model = await promptCloudModel("cloud");
     }
     model = model || requestedModel || DEFAULT_CLOUD_MODEL;
-    console.log(`  Using NVIDIA Cloud API with model: ${model}`);
+    console.log(`  Using ${cp.label} with model: ${model}`);
   }
 
-  registry.updateSandbox(sandboxName, { model, provider, nimContainer });
-
-  return { model, provider };
+  return { model, provider, providerName: provider, nimPending };
 }
 
-// ── Step 5: Inference provider ───────────────────────────────────
+// ── Step 4: Inference provider ───────────────────────────────────
 
-async function setupInference(sandboxName, model, provider) {
+async function setupInference(sandboxName, model, provider, providerName) {
   step(5, 7, "Setting up inference provider");
 
-  if (provider === "nvidia-nim") {
-    // Create nvidia-nim provider
+  // Handle cloud providers from CLOUD_PROVIDERS registry
+  const cloudEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
+  if (cloudEntry) {
+    const credKey = cloudEntry.credentialKey;
+    const apiKey = process.env[credKey];
+    const baseUrl = cloudEntry.baseUrl;
+
+    // Create or update the cloud provider
     run(
-      `openshell provider create --name nvidia-nim --type openai ` +
-      `--credential "NVIDIA_API_KEY=${process.env.NVIDIA_API_KEY}" ` +
-      `--config "OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1" 2>&1 || true`,
+      `openshell provider create --name ${provider} --type openai ` +
+      `--credential "${credKey}=${apiKey}" ` +
+      `--config "OPENAI_BASE_URL=${baseUrl}" 2>&1 || ` +
+      `openshell provider update ${provider} --credential "${credKey}=${apiKey}" ` +
+      `--config "OPENAI_BASE_URL=${baseUrl}" 2>&1 || true`,
       { ignoreError: true }
     );
     run(
-      `openshell inference set --no-verify --provider nvidia-nim --model ${model} 2>/dev/null || true`,
+      `openshell inference set --no-verify --provider ${provider} --model ${model} 2>/dev/null || true`,
       { ignoreError: true }
     );
   } else if (provider === "vllm-local") {
@@ -925,8 +1018,10 @@ function printDashboard(sandboxName, model, provider) {
   const nimStat = nim.nimStatus(sandboxName);
   const nimLabel = nimStat.running ? "running" : "not running";
 
+  // Resolve human-readable provider label
+  const cloudEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
   let providerLabel = provider;
-  if (provider === "nvidia-nim") providerLabel = "NVIDIA Cloud API";
+  if (cloudEntry) providerLabel = cloudEntry.label;
   else if (provider === "vllm-local") providerLabel = "Local vLLM";
   else if (provider === "ollama-local") providerLabel = "Local Ollama";
 
@@ -956,9 +1051,9 @@ async function onboard(opts = {}) {
 
   const gpu = await preflight();
   await startGateway(gpu);
-  const sandboxName = await createSandbox(gpu);
-  const { model, provider } = await setupNim(sandboxName, gpu);
-  await setupInference(sandboxName, model, provider);
+  const { model, provider, providerName } = await setupNim(gpu);
+  const sandboxName = await createSandbox(gpu, providerName);
+  await setupInference(sandboxName, model, provider, providerName);
   await setupOpenclaw(sandboxName, model, provider);
   await setupPolicies(sandboxName);
   printDashboard(sandboxName, model, provider);
