@@ -20,6 +20,7 @@
 const { App } = require("@slack/bolt");
 const { execSync, spawn } = require("child_process");
 const { resolveOpenshell } = require("../bin/lib/resolve-openshell");
+const { getCredential } = require("../bin/lib/credentials");
 
 const OPENSHELL = resolveOpenshell();
 if (!OPENSHELL) {
@@ -27,13 +28,13 @@ if (!OPENSHELL) {
   process.exit(1);
 }
 
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN;
+const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || getCredential("SLACK_BOT_TOKEN");
+const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN || getCredential("SLACK_APP_TOKEN");
 const SANDBOX = process.env.SANDBOX_NAME || "nemoclaw";
 const HISTORY_COUNT = parseInt(process.env.SLACK_HISTORY_COUNT || "20", 10);
 
-if (!SLACK_BOT_TOKEN) { console.error("SLACK_BOT_TOKEN required"); process.exit(1); }
-if (!SLACK_APP_TOKEN) { console.error("SLACK_APP_TOKEN required (Socket Mode app-level token)"); process.exit(1); }
+if (!SLACK_BOT_TOKEN) { console.error("SLACK_BOT_TOKEN required. Set env var or run: nemoclaw credentials set SLACK_BOT_TOKEN"); process.exit(1); }
+if (!SLACK_APP_TOKEN) { console.error("SLACK_APP_TOKEN required. Set env var or run: nemoclaw credentials set SLACK_APP_TOKEN"); process.exit(1); }
 
 const app = new App({
   token: SLACK_BOT_TOKEN,

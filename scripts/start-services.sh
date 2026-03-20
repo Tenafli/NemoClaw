@@ -125,9 +125,19 @@ do_start() {
   # Inference API keys are managed by the sandbox provider config.
   # No need to pass them here — openshell injects them at runtime.
 
+  # Load tokens from NemoClaw credential store if not in env
+  CREDS_FILE="$HOME/.nemoclaw/credentials.json"
+  if [ -f "$CREDS_FILE" ]; then
+    _cred() { node -e "try{console.log(JSON.parse(require('fs').readFileSync('$CREDS_FILE','utf8'))['$1']||'')}catch{}" 2>/dev/null; }
+    [ -z "${SLACK_BOT_TOKEN:-}" ] && SLACK_BOT_TOKEN="$(_cred SLACK_BOT_TOKEN)"
+    [ -z "${SLACK_APP_TOKEN:-}" ] && SLACK_APP_TOKEN="$(_cred SLACK_APP_TOKEN)"
+    [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && TELEGRAM_BOT_TOKEN="$(_cred TELEGRAM_BOT_TOKEN)"
+    export SLACK_BOT_TOKEN SLACK_APP_TOKEN TELEGRAM_BOT_TOKEN
+  fi
+
   if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && [ -z "${SLACK_BOT_TOKEN:-}" ]; then
-    warn "No messaging tokens set — no bridges will start."
-    warn "Set TELEGRAM_BOT_TOKEN and/or SLACK_BOT_TOKEN + SLACK_APP_TOKEN."
+    warn "No messaging tokens found in env or ~/.nemoclaw/credentials.json"
+    warn "Save tokens: node -e \"require('./bin/lib/credentials').saveCredential('SLACK_BOT_TOKEN','xoxb-...')\""
   fi
 
   command -v node > /dev/null || fail "node not found. Install Node.js first."
