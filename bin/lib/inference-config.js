@@ -101,8 +101,18 @@ function getProviderSelectionConfig(provider, model) {
 }
 
 function getOpenClawPrimaryModel(provider, model) {
-  const resolvedModel =
-    model || (provider === "ollama-local" ? DEFAULT_OLLAMA_MODEL : DEFAULT_CLOUD_MODEL);
+  let resolvedModel = model;
+  if (!resolvedModel) {
+    if (provider === "ollama-local") {
+      resolvedModel = DEFAULT_OLLAMA_MODEL;
+    } else {
+      // Look up default model from cloud provider registry
+      const cloudEntry = Object.values(CLOUD_PROVIDERS).find(
+        (cp) => cp.providerName === provider
+      );
+      resolvedModel = cloudEntry ? cloudEntry.models[0].id : DEFAULT_CLOUD_MODEL;
+    }
+  }
   return resolvedModel ? `${MANAGED_PROVIDER_ID}/${resolvedModel}` : null;
 }
 

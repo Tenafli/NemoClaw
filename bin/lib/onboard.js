@@ -470,6 +470,7 @@ async function startGateway(gpu) {
 
 async function createSandbox(gpu, providerName) {
   step(4, 7, "Creating sandbox");
+  // Note: step numbering — 1:preflight, 2:gateway, 3:inference config, 4:sandbox, 5:inference setup, 6:openclaw, 7:policies
 
   const nameAnswer = await promptOrDefault(
     "  Sandbox name (lowercase, numbers, hyphens) [my-assistant]: ",
@@ -806,7 +807,7 @@ async function setupNim(gpu) {
 
 // ── Step 4: Inference provider ───────────────────────────────────
 
-async function setupInference(sandboxName, model, provider, providerName) {
+async function setupInference(sandboxName, model, provider) {
   step(5, 7, "Setting up inference provider");
 
   // Handle cloud providers from CLOUD_PROVIDERS registry
@@ -1051,9 +1052,24 @@ async function onboard(opts = {}) {
 
   const gpu = await preflight();
   await startGateway(gpu);
-  const { model, provider, providerName } = await setupNim(gpu);
+  // Provider selection happens before sandbox creation so --provider flag
+  // can be passed to `openshell sandbox create`.
+  const { model, provider, providerName, nimPending } = await setupNim(gpu);
   const sandboxName = await createSandbox(gpu, providerName);
-  await setupInference(sandboxName, model, provider, providerName);
+
+  // Deferred NIM container startup (experimental, requires sandboxName)
+  if (nimPending) {
+    console.log("  Starting NIM container...");
+    const nimContainer = nim.startNimContainer(sandboxName, model);
+    console.log("  Waiting for NIM to become healthy...");
+    if (!nim.waitForNimHealth()) {
+      console.error("  NIM failed to start. Falling back to cloud API.");
+    } else {
+      registry.updateSandbox(sandboxName, { nimContainer });
+    }
+  }
+
+  await setupInference(sandboxName, model, provider);
   await setupOpenclaw(sandboxName, model, provider);
   await setupPolicies(sandboxName);
   printDashboard(sandboxName, model, provider);
