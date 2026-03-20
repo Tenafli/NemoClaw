@@ -174,13 +174,44 @@ When something goes wrong, errors may originate from either NemoClaw or the Open
 
 ## Inference
 
-Inference requests from the agent never leave the sandbox directly. OpenShell intercepts every call and routes it to the NVIDIA cloud provider.
+Inference requests from the agent never leave the sandbox directly. OpenShell intercepts every call and routes it through the gateway proxy.
+
+### Cloud Providers
+
+The onboarding wizard supports multiple cloud inference providers:
 
 | Provider     | Model                               | Use Case                                       |
 |--------------|--------------------------------------|-------------------------------------------------|
-| NVIDIA cloud | `nvidia/nemotron-3-super-120b-a12b` | Production. Requires an NVIDIA API key.         |
+| NVIDIA cloud | `nvidia/nemotron-3-super-120b-a12b` | Default. Requires an NVIDIA API key from [build.nvidia.com](https://build.nvidia.com). |
+| Google AI Studio | `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro` | Gemini models. Requires a key from [aistudio.google.com](https://aistudio.google.com). |
 
-Get an API key from [build.nvidia.com](https://build.nvidia.com). The `nemoclaw onboard` command prompts for this key during setup.
+During `nemoclaw onboard`, select your preferred provider:
+
+```
+Inference options:
+  1) NVIDIA Cloud API (build.nvidia.com) (recommended)
+  2) Google AI Studio (Gemini)
+  3) Local Ollama (localhost:11434)
+```
+
+#### Non-interactive mode
+
+```bash
+# NVIDIA (default)
+NVIDIA_API_KEY=nvapi-... nemoclaw onboard --non-interactive
+
+# Gemini
+NEMOCLAW_PROVIDER=gemini \
+GEMINI_API_KEY=AIza... \
+NEMOCLAW_MODEL=gemini-2.5-flash-lite \
+nemoclaw onboard --non-interactive
+```
+
+#### Adding new providers
+
+Adding a new cloud provider requires only a single entry in the `CLOUD_PROVIDERS` registry in `bin/lib/inference-config.js`. No other code changes needed.
+
+### Local Inference
 
 Local inference options such as Ollama and vLLM are still experimental. On macOS, they also depend on OpenShell host-routing support in addition to the local service itself being reachable on the host.
 
@@ -201,6 +232,62 @@ When the agent tries to reach an unlisted host, OpenShell blocks the request and
 
 ---
 
+## Providers
+
+Providers manage credentials for external services. OpenShell injects them securely into the sandbox at creation time — the sandbox never sees raw tokens.
+
+| Provider | Type | Purpose |
+|----------|------|---------|
+| Inference (gemini, nvidia-nim) | `openai` | LLM API keys for inference |
+| GitHub | `github` | Git clone/push for private repos |
+
+```bash
+# Create a provider (one-time, on host)
+openshell provider create --name github --type github --credential "GITHUB_TOKEN=ghp_..."
+
+# All providers are auto-attached on next sandbox creation
+nemoclaw onboard
+```
+
+Providers persist across sandbox recreations. When `nemoclaw onboard` creates a sandbox, it auto-detects all registered providers and attaches them.
+
+---
+
+## Messaging Bridges
+
+NemoClaw includes bridge scripts that connect the sandbox agent to messaging platforms. The agent responds when mentioned.
+
+### Slack
+
+Requires a Slack app with Socket Mode, `app_mention` and `message.channels` bot events, and `chat:write` + `channels:history` scopes.
+
+```bash
+SLACK_BOT_TOKEN=xoxb-... \
+SLACK_APP_TOKEN=xapp-... \
+./scripts/start-services.sh --sandbox my-assistant
+```
+
+The Slack bridge sends recent channel history as context when the bot is @mentioned, so the agent understands the conversation.
+
+### Telegram
+
+Requires a Telegram bot token from [@BotFather](https://t.me/BotFather).
+
+```bash
+TELEGRAM_BOT_TOKEN=... \
+./scripts/start-services.sh --sandbox my-assistant
+```
+
+### Service Management
+
+```bash
+./scripts/start-services.sh --sandbox my-assistant              # start all bridges
+./scripts/start-services.sh --sandbox my-assistant --status     # check status
+./scripts/start-services.sh --sandbox my-assistant --stop       # stop all
+```
+
+---
+
 ## Key Commands
 
 ### Host commands (`nemoclaw`)
@@ -212,7 +299,7 @@ Run these on the host to set up, connect to, and manage sandboxes.
 | `nemoclaw onboard`                  | Interactive setup wizard: gateway, providers, sandbox. |
 | `nemoclaw <name> connect`            | Open an interactive shell inside the sandbox.          |
 | `openshell term`                     | Launch the OpenShell TUI for monitoring and approvals. |
-| `nemoclaw start` / `stop` / `status` | Manage auxiliary services (Telegram bridge, tunnel).   |
+| `nemoclaw start` / `stop` / `status` | Manage auxiliary services (Telegram/Slack bridge, tunnel). |
 
 ### Plugin commands (`openclaw nemoclaw`)
 
