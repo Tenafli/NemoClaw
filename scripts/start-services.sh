@@ -122,10 +122,8 @@ do_stop() {
 }
 
 do_start() {
-  # At least one inference API key must be set
-  if [ -z "${NVIDIA_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
-    fail "No inference API key set. Set NVIDIA_API_KEY or GEMINI_API_KEY."
-  fi
+  # Inference API keys are managed by the sandbox provider config.
+  # No need to pass them here — openshell injects them at runtime.
 
   if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] && [ -z "${SLACK_BOT_TOKEN:-}" ]; then
     warn "No messaging tokens set — no bridges will start."
