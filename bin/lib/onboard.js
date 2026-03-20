@@ -106,21 +106,27 @@ function buildSandboxConfigSyncScript(selectionConfig) {
   );
   const primaryModel = getOpenClawPrimaryModel(providerType, selectionConfig.model);
   const providerKey = "inference";
+  // Look up compat overrides for this provider (e.g. Gemini rejects "store" param)
+  const cloudEntry = Object.values(CLOUD_PROVIDERS).find(
+    (cp) => cp.providerName === providerType
+  );
+  const modelEntry = {
+    id: selectionConfig.model,
+    name: selectionConfig.model,
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 131072,
+    maxTokens: 4096,
+  };
+  if (cloudEntry?.modelCompat) {
+    modelEntry.compat = cloudEntry.modelCompat;
+  }
   const providerConfig = {
     baseUrl: selectionConfig.endpointUrl,
     apiKey: "unused",
     api: "openai-completions",
-    models: [
-      {
-        id: selectionConfig.model,
-        name: selectionConfig.model,
-        reasoning: false,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 131072,
-        maxTokens: 4096,
-      },
-    ],
+    models: [modelEntry],
   };
   return `
 set -euo pipefail

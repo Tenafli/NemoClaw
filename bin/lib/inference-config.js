@@ -22,6 +22,7 @@ const CLOUD_PROVIDERS = {
     credentialPrompt: "Enter your NVIDIA API key",
     credentialHint: "Get one from https://build.nvidia.com",
     policyFile: null, // NVIDIA egress is handled by the base sandbox policy
+    modelCompat: null, // NVIDIA endpoint supports all OpenAI params
     models: CLOUD_MODEL_OPTIONS,
   },
   gemini: {
@@ -33,6 +34,8 @@ const CLOUD_PROVIDERS = {
     credentialPrompt: "Enter your Google AI Studio API key",
     credentialHint: "Get one from https://aistudio.google.com",
     policyFile: "gemini-egress.yaml",
+    // Gemini rejects unsupported OpenAI params like "store"
+    modelCompat: { supportsStore: false },
     models: [
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
       { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
