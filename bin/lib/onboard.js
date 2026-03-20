@@ -538,8 +538,23 @@ async function createSandbox(gpu, providerName) {
     `--name "${sandboxName}"`,
     `--policy "${basePolicyPath}"`,
   ];
+  // Attach the inference provider and any other existing providers (e.g. github)
+  // so credentials are injected into the sandbox at creation time.
   if (providerName) {
     createArgs.push(`--provider "${providerName}"`);
+  }
+  try {
+    const providerList = runCapture("openshell provider list 2>/dev/null", { ignoreError: true }) || "";
+    const lines = providerList.split("\n").slice(1); // skip header
+    for (const line of lines) {
+      const name = line.trim().split(/\s+/)[0];
+      if (name && name !== providerName) {
+        createArgs.push(`--provider "${name}"`);
+        console.log(`  Auto-attaching provider: ${name}`);
+      }
+    }
+  } catch {
+    // provider list not available — skip auto-attach
   }
   // --gpu is intentionally omitted. See comment in startGateway().
 

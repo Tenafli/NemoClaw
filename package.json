@@ -11,6 +11,7 @@
     "prepublishOnly": "cd nemoclaw && npm install --ignore-scripts && npm run build"
   },
   "dependencies": {
+    "@slack/bolt": "^4.6.0",
     "openclaw": "2026.3.11"
   },
   "files": [
