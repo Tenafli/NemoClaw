@@ -200,8 +200,12 @@ app.event("app_mention", async ({ event, client, say }) => {
       text: ":hourglass_flowing_sand: Thinking...",
     });
 
-    // Fresh session per mention — channel history is already included in the prompt
-    const sessionId = `${event.channel}-${event.ts}`.replace(/[^a-zA-Z0-9-]/g, "_");
+    // Thread replies share a session (conversation continuity).
+    // New top-level messages get a fresh session (with channel history as context).
+    const isThread = !!event.thread_ts;
+    const sessionId = isThread
+      ? `${event.channel}-${event.thread_ts}`.replace(/[^a-zA-Z0-9-]/g, "_")
+      : `${event.channel}-${event.ts}`.replace(/[^a-zA-Z0-9-]/g, "_");
     const response = await runAgentInSandbox(fullPrompt, sessionId);
 
     console.log(`[${event.channel}] agent: ${response.slice(0, 100)}...`);
