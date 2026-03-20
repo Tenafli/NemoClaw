@@ -88,7 +88,7 @@ function getProviderSelectionConfig(provider, model) {
       if (cloudEntry) {
         return {
           endpointType: "custom",
-          endpointUrl: cloudEntry.baseUrl,
+          endpointUrl: INFERENCE_ROUTE_URL,
           ncpPartner: null,
           model: model || cloudEntry.models[0].id,
           profile: DEFAULT_ROUTE_PROFILE,
