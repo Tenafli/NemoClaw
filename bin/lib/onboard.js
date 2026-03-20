@@ -144,6 +144,11 @@ models_cfg.setdefault('mode', 'merge')
 providers_cfg = models_cfg.setdefault('providers', {})
 providers_cfg[${JSON.stringify(providerKey)}] = json.loads(${pythonLiteralJson(providerConfig)})
 
+# Remove the hardcoded nvidia provider if we're using a different cloud provider,
+# so OpenClaw doesn't pick it up instead of the inference provider.
+if ${JSON.stringify(providerType)} != 'nvidia-nim':
+    providers_cfg.pop('nvidia', None)
+
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
 
