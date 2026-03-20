@@ -469,8 +469,8 @@ async function startGateway(gpu) {
 // ── Step 3: Sandbox ──────────────────────────────────────────────
 
 async function createSandbox(gpu, providerName) {
-  step(4, 7, "Creating sandbox");
-  // Note: step numbering — 1:preflight, 2:gateway, 3:inference config, 4:sandbox, 5:inference setup, 6:openclaw, 7:policies
+  step(5, 7, "Creating sandbox");
+  // Step order: 1:preflight, 2:gateway, 3:provider selection, 4:provider creation, 5:sandbox, 6:openclaw, 7:policies
 
   const nameAnswer = await promptOrDefault(
     "  Sandbox name (lowercase, numbers, hyphens) [my-assistant]: ",
@@ -805,10 +805,11 @@ async function setupNim(gpu) {
   return { model, provider, providerName: provider, nimPending };
 }
 
-// ── Step 4: Inference provider ───────────────────────────────────
+// ── Step 4: Create inference provider ────────────────────────────
+// Must run BEFORE createSandbox so the provider exists when --provider is passed.
 
-async function setupInference(sandboxName, model, provider) {
-  step(5, 7, "Setting up inference provider");
+async function createInferenceProvider(model, provider) {
+  step(4, 7, "Setting up inference provider");
 
   // Handle cloud providers from CLOUD_PROVIDERS registry
   const cloudEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
@@ -878,7 +879,6 @@ async function setupInference(sandboxName, model, provider) {
     }
   }
 
-  registry.updateSandbox(sandboxName, { model, provider });
   console.log(`  ✓ Inference route set: ${provider} / ${model}`);
 }
 
@@ -1052,9 +1052,10 @@ async function onboard(opts = {}) {
 
   const gpu = await preflight();
   await startGateway(gpu);
-  // Provider selection happens before sandbox creation so --provider flag
-  // can be passed to `openshell sandbox create`.
+  // Provider selection and creation happen before sandbox creation so the
+  // --provider flag on `openshell sandbox create` can reference an existing provider.
   const { model, provider, providerName, nimPending } = await setupNim(gpu);
+  await createInferenceProvider(model, provider);
   const sandboxName = await createSandbox(gpu, providerName);
 
   // Deferred NIM container startup (experimental, requires sandboxName)
@@ -1069,7 +1070,7 @@ async function onboard(opts = {}) {
     }
   }
 
-  await setupInference(sandboxName, model, provider);
+  registry.updateSandbox(sandboxName, { model, provider });
   await setupOpenclaw(sandboxName, model, provider);
   await setupPolicies(sandboxName);
   printDashboard(sandboxName, model, provider);
