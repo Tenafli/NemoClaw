@@ -1,0 +1,17 @@
+# Egress policy for Google AI Studio (Gemini) inference provider.
+# Applied automatically when Gemini is selected during onboarding.
+
+network_policies:
+  gemini:
+    name: gemini
+    endpoints:
+      - host: generativelanguage.googleapis.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: "*", path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/node }
+      - { path: /usr/local/bin/openclaw }

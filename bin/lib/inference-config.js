@@ -21,6 +21,7 @@ const CLOUD_PROVIDERS = {
     credentialKey: "NVIDIA_API_KEY",
     credentialPrompt: "Enter your NVIDIA API key",
     credentialHint: "Get one from https://build.nvidia.com",
+    policyFile: null, // NVIDIA egress is handled by the base sandbox policy
     models: CLOUD_MODEL_OPTIONS,
   },
   gemini: {
@@ -31,6 +32,7 @@ const CLOUD_PROVIDERS = {
     credentialKey: "GEMINI_API_KEY",
     credentialPrompt: "Enter your Google AI Studio API key",
     credentialHint: "Get one from https://aistudio.google.com",
+    policyFile: "gemini-egress.yaml",
     models: [
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
       { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
@@ -86,7 +88,7 @@ function getProviderSelectionConfig(provider, model) {
       if (cloudEntry) {
         return {
           endpointType: "custom",
-          endpointUrl: INFERENCE_ROUTE_URL,
+          endpointUrl: cloudEntry.baseUrl,
           ncpPartner: null,
           model: model || cloudEntry.models[0].id,
           profile: DEFAULT_ROUTE_PROFILE,

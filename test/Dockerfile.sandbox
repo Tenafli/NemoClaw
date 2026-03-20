@@ -29,7 +29,10 @@ RUN find /usr/local/lib/node_modules/openclaw -name "*.js" \
       -exec grep -l "TRUSTED_ENV_PROXY" {} \; | \
     xargs -I{} sed -i \
       's/const pinned=await resolvePinnedHostnameWithPolicy/if(mode===GUARDED_FETCH_MODE.TRUSTED_ENV_PROXY\&\&hasProxyEnvConfigured()){dispatcher=new EnvHttpProxyAgent()}else{const pinned=await resolvePinnedHostnameWithPolicy/' \
-      {}
+      {} && \
+    find /usr/local/lib/node_modules/openclaw -name "*.js" \
+      -exec grep -l "TRUSTED_ENV_PROXY&&hasProxyEnvConfigured" {} \; | \
+    grep -q . || (echo "ERROR: fetch-guard patch failed to apply" && exit 1)
 
 # Install PyYAML for blueprint runner
 RUN pip3 install --break-system-packages pyyaml

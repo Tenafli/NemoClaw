@@ -1071,6 +1071,15 @@ async function onboard(opts = {}) {
   }
 
   registry.updateSandbox(sandboxName, { model, provider });
+
+  // Apply provider-specific egress policy if defined in CLOUD_PROVIDERS
+  const providerEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
+  if (providerEntry && providerEntry.policyFile) {
+    const providerPolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", providerEntry.policyFile);
+    console.log(`  Applying ${providerEntry.label} egress policy...`);
+    run(`openshell policy set --policy "${providerPolicyPath}" --wait "${sandboxName}"`, { ignoreError: true });
+  }
+
   await setupOpenclaw(sandboxName, model, provider);
   await setupPolicies(sandboxName);
   printDashboard(sandboxName, model, provider);
