@@ -73,7 +73,7 @@ function parseCurrentPolicy(raw) {
  * Build the openshell policy set command with properly quoted arguments.
  */
 function buildPolicySetCommand(policyFile, sandboxName) {
-  return `openshell policy set --policy "${policyFile}" --wait "${sandboxName}"`;
+  return `openshell policy set --policy "${policyFile}" "${sandboxName}"`;
 }
 
 /**

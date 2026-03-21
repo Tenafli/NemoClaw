@@ -1105,7 +1105,7 @@ async function onboard(opts = {}) {
   if (providerEntry && providerEntry.policyFile) {
     const providerPolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", providerEntry.policyFile);
     console.log(`  Applying ${providerEntry.label} egress policy...`);
-    run(`openshell policy set --policy "${providerPolicyPath}" --wait "${sandboxName}"`, { ignoreError: true });
+    run(`openshell policy set --policy "${providerPolicyPath}" "${sandboxName}"`, { ignoreError: true });
   }
 
   await setupOpenclaw(sandboxName, model, provider);
