@@ -195,6 +195,59 @@ function getAppliedPresets(sandboxName) {
   return sandbox ? sandbox.policies || [] : [];
 }
 
+/**
+ * Merge preset policies into a base policy YAML file and write to a temp file.
+ * Returns the path to the merged policy file.
+ * Use this when openshell policy set is unavailable (e.g. gateway version < 0.1).
+ */
+function mergePresetsIntoBase(basePolicyPath, presetNames) {
+  let basePolicy = fs.readFileSync(basePolicyPath, "utf-8");
+
+  for (const name of presetNames) {
+    const presetContent = loadPreset(name);
+    if (!presetContent) continue;
+
+    const entries = extractPresetEntries(presetContent);
+    if (!entries) continue;
+
+    // Insert preset entries before the next top-level key after network_policies,
+    // or at the end if network_policies is the last section
+    const lines = basePolicy.split("\n");
+    const result = [];
+    let inNetworkPolicies = false;
+    let inserted = false;
+
+    for (const line of lines) {
+      const isTopLevel = /^\S.*:/.test(line);
+
+      if (line.trim() === "network_policies:" || line.trim().startsWith("network_policies:")) {
+        inNetworkPolicies = true;
+        result.push(line);
+        continue;
+      }
+
+      if (inNetworkPolicies && isTopLevel && !inserted) {
+        result.push(entries);
+        result.push("");
+        inserted = true;
+        inNetworkPolicies = false;
+      }
+
+      result.push(line);
+    }
+
+    if (inNetworkPolicies && !inserted) {
+      result.push(entries);
+    }
+
+    basePolicy = result.join("\n");
+  }
+
+  const tmpFile = path.join(os.tmpdir(), `nemoclaw-merged-policy-${Date.now()}.yaml`);
+  fs.writeFileSync(tmpFile, basePolicy, "utf-8");
+  return tmpFile;
+}
+
 module.exports = {
   PRESETS_DIR,
   listPresets,
@@ -206,4 +259,5 @@ module.exports = {
   buildPolicyGetCommand,
   applyPreset,
   getAppliedPresets,
+  mergePresetsIntoBase,
 };

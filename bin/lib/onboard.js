@@ -481,9 +481,9 @@ async function startGateway(gpu) {
 
 // ── Step 3: Sandbox ──────────────────────────────────────────────
 
-async function createSandbox(gpu, providerName) {
-  step(5, 7, "Creating sandbox");
-  // Step order: 1:preflight, 2:gateway, 3:provider selection, 4:provider creation, 5:sandbox, 6:openclaw, 7:policies
+async function createSandbox(gpu, providerName, mergedPolicyPath) {
+  step(6, 7, "Creating sandbox");
+  // Step order: 1:preflight, 2:gateway, 3:provider selection, 4:provider creation, 5:policies, 6:sandbox, 7:openclaw
 
   const nameAnswer = await promptOrDefault(
     "  Sandbox name (lowercase, numbers, hyphens) [my-assistant]: ",
@@ -532,13 +532,12 @@ async function createSandbox(gpu, providerName) {
   run(`cp -r "${path.join(ROOT, "scripts")}" "${buildCtx}/scripts"`);
   run(`rm -rf "${buildCtx}/nemoclaw/node_modules" "${buildCtx}/nemoclaw/src"`, { ignoreError: true });
 
-  // Create sandbox (use -- echo to avoid dropping into interactive shell)
-  // Pass the base policy so sandbox starts in proxy mode (required for policy updates later)
-  const basePolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", "openclaw-sandbox.yaml");
+  // Create sandbox with merged policy (base + presets + provider egress)
+  const policyPath = mergedPolicyPath || path.join(ROOT, "nemoclaw-blueprint", "policies", "openclaw-sandbox.yaml");
   const createArgs = [
     `--from "${buildCtx}/Dockerfile"`,
     `--name "${sandboxName}"`,
-    `--policy "${basePolicyPath}"`,
+    `--policy "${policyPath}"`,
   ];
   // Attach the inference provider and any other existing providers (e.g. github)
   // so credentials are injected into the sandbox at creation time.
@@ -913,7 +912,7 @@ async function createInferenceProvider(model, provider) {
 // ── Step 6: OpenClaw ─────────────────────────────────────────────
 
 async function setupOpenclaw(sandboxName, model, provider) {
-  step(6, 7, "Setting up OpenClaw inside sandbox");
+  step(7, 7, "Setting up OpenClaw inside sandbox");
 
   const selectionConfig = getProviderSelectionConfig(provider, model);
   if (selectionConfig) {
@@ -932,8 +931,8 @@ EOF_NEMOCLAW_SYNC`, { stdio: ["ignore", "ignore", "inherit"] });
 
 // ── Step 7: Policy presets ───────────────────────────────────────
 
-async function setupPolicies(sandboxName) {
-  step(7, 7, "Policy presets");
+async function selectPolicyPresets() {
+  step(5, 7, "Policy presets");
 
   const suggestions = ["pypi", "npm"];
 
@@ -952,36 +951,34 @@ async function setupPolicies(sandboxName) {
   }
 
   const allPresets = policies.listPresets();
-  const applied = policies.getAppliedPresets(sandboxName);
 
   console.log("");
   console.log("  Available policy presets:");
   allPresets.forEach((p) => {
-    const marker = applied.includes(p.name) ? "●" : "○";
     const suggested = suggestions.includes(p.name) ? " (suggested)" : "";
-    console.log(`    ${marker} ${p.name} — ${p.description}${suggested}`);
+    console.log(`    ○ ${p.name} — ${p.description}${suggested}`);
   });
   console.log("");
 
   if (isNonInteractive()) {
     const policyMode = (process.env.NEMOCLAW_POLICY_MODE || "suggested").trim().toLowerCase();
-    let selectedPresets = suggestions;
+    let selected = suggestions;
 
     if (policyMode === "skip" || policyMode === "none" || policyMode === "no") {
       console.log("  [non-interactive] Skipping policy presets.");
-      return;
+      return [];
     }
 
     if (policyMode === "custom" || policyMode === "list") {
-      selectedPresets = parsePolicyPresetEnv(process.env.NEMOCLAW_POLICY_PRESETS);
-      if (selectedPresets.length === 0) {
+      selected = parsePolicyPresetEnv(process.env.NEMOCLAW_POLICY_PRESETS);
+      if (selected.length === 0) {
         console.error("  NEMOCLAW_POLICY_PRESETS is required when NEMOCLAW_POLICY_MODE=custom.");
         process.exit(1);
       }
     } else if (policyMode === "suggested" || policyMode === "default" || policyMode === "auto") {
       const envPresets = parsePolicyPresetEnv(process.env.NEMOCLAW_POLICY_PRESETS);
       if (envPresets.length > 0) {
-        selectedPresets = envPresets;
+        selected = envPresets;
       }
     } else {
       console.error(`  Unsupported NEMOCLAW_POLICY_MODE: ${policyMode}`);
@@ -990,55 +987,31 @@ async function setupPolicies(sandboxName) {
     }
 
     const knownPresets = new Set(allPresets.map((p) => p.name));
-    const invalidPresets = selectedPresets.filter((name) => !knownPresets.has(name));
+    const invalidPresets = selected.filter((name) => !knownPresets.has(name));
     if (invalidPresets.length > 0) {
       console.error(`  Unknown policy preset(s): ${invalidPresets.join(", ")}`);
       process.exit(1);
     }
 
-    if (!waitForSandboxReady(sandboxName)) {
-      console.error(`  Sandbox '${sandboxName}' was not ready for policy application.`);
-      process.exit(1);
-    }
-    console.log(`  [non-interactive] Applying policy presets: ${selectedPresets.join(", ")}`);
-    for (const name of selectedPresets) {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          policies.applyPreset(sandboxName, name);
-          break;
-        } catch (err) {
-          const message = err && err.message ? err.message : String(err);
-          if (!message.includes("sandbox not found") || attempt === 2) {
-            throw err;
-          }
-          sleep(2);
-        }
-      }
-    }
-  } else {
-    const answer = await prompt(`  Apply suggested presets (${suggestions.join(", ")})? [Y/n/list]: `);
-
-    if (answer.toLowerCase() === "n") {
-      console.log("  Skipping policy presets.");
-      return;
-    }
-
-    if (answer.toLowerCase() === "list") {
-      // Let user pick
-      const picks = await prompt("  Enter preset names (comma-separated): ");
-      const selected = picks.split(",").map((s) => s.trim()).filter(Boolean);
-      for (const name of selected) {
-        policies.applyPreset(sandboxName, name);
-      }
-    } else {
-      // Apply suggested
-      for (const name of suggestions) {
-        policies.applyPreset(sandboxName, name);
-      }
-    }
+    console.log(`  [non-interactive] Selected presets: ${selected.join(", ")}`);
+    return selected;
   }
 
-  console.log("  ✓ Policies applied");
+  const answer = await prompt(`  Apply suggested presets (${suggestions.join(", ")})? [Y/n/list]: `);
+
+  if (answer.toLowerCase() === "n") {
+    console.log("  Skipping policy presets.");
+    return [];
+  }
+
+  if (answer.toLowerCase() === "list") {
+    const picks = await prompt("  Enter preset names (comma-separated): ");
+    return picks.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+
+  // Apply suggested
+  console.log(`  Will merge presets: ${suggestions.join(", ")}`);
+  return suggestions;
 }
 
 // ── Dashboard ────────────────────────────────────────────────────
@@ -1084,7 +1057,66 @@ async function onboard(opts = {}) {
   // --provider flag on `openshell sandbox create` can reference an existing provider.
   const { model, provider, providerName, nimPending } = await setupNim(gpu);
   await createInferenceProvider(model, provider);
-  const sandboxName = await createSandbox(gpu, providerName);
+
+  // Select policy presets before sandbox creation — merge into base policy
+  // since openshell 0.0.x doesn't support runtime policy updates.
+  const selectedPresets = await selectPolicyPresets();
+
+  // Collect all policies to merge: provider egress + user-selected presets
+  const presetsToMerge = [...selectedPresets];
+  const providerEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
+  let mergedPolicyPath = null;
+  if ((providerEntry && providerEntry.policyFile) || presetsToMerge.length > 0) {
+    const basePolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", "openclaw-sandbox.yaml");
+
+    // If provider has an egress policy, merge it first by copying its entries into a temp preset
+    if (providerEntry && providerEntry.policyFile) {
+      const providerPolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", providerEntry.policyFile);
+      const providerContent = fs.readFileSync(providerPolicyPath, "utf-8");
+      // Extract network_policies entries, skipping the version line
+      const npMatch = providerContent.match(/^network_policies:\n([\s\S]*)$/m);
+      if (npMatch) {
+        const tmpPreset = path.join(require("os").tmpdir(), `nemoclaw-provider-preset-${Date.now()}.yaml`);
+        fs.writeFileSync(tmpPreset, `preset:\n  name: provider-egress\n  description: Provider egress\n\nnetwork_policies:\n${npMatch[1]}`);
+        // Temporarily add to presets dir isn't needed — we handle inline
+        presetsToMerge.unshift("__provider_egress__");
+        // Monkey-patch: directly merge provider entries into base
+        let basePolicy = fs.readFileSync(basePolicyPath, "utf-8");
+        const lines = basePolicy.split("\n");
+        const result = [];
+        let inNp = false;
+        let inserted = false;
+        for (const line of lines) {
+          if (line.trim() === "network_policies:" || line.trim().startsWith("network_policies:")) {
+            inNp = true; result.push(line); continue;
+          }
+          if (inNp && /^\S.*:/.test(line) && !inserted) {
+            result.push(npMatch[1].trimEnd()); result.push(""); inserted = true; inNp = false;
+          }
+          result.push(line);
+        }
+        if (inNp && !inserted) result.push(npMatch[1].trimEnd());
+        const tmpBase = path.join(require("os").tmpdir(), `nemoclaw-base-with-provider-${Date.now()}.yaml`);
+        fs.writeFileSync(tmpBase, result.join("\n"));
+        // Remove the fake preset name and merge user presets on top of this
+        presetsToMerge.shift();
+        mergedPolicyPath = policies.mergePresetsIntoBase(tmpBase, presetsToMerge);
+        fs.unlinkSync(tmpBase);
+        fs.unlinkSync(tmpPreset);
+      }
+    }
+
+    if (!mergedPolicyPath) {
+      mergedPolicyPath = policies.mergePresetsIntoBase(basePolicyPath, presetsToMerge);
+    }
+  }
+
+  const sandboxName = await createSandbox(gpu, providerName, mergedPolicyPath);
+
+  // Clean up temp merged policy
+  if (mergedPolicyPath) {
+    try { fs.unlinkSync(mergedPolicyPath); } catch {}
+  }
 
   // Deferred NIM container startup (experimental, requires sandboxName)
   if (nimPending) {
@@ -1098,18 +1130,8 @@ async function onboard(opts = {}) {
     }
   }
 
-  registry.updateSandbox(sandboxName, { model, provider });
-
-  // Apply provider-specific egress policy if defined in CLOUD_PROVIDERS
-  const providerEntry = Object.values(CLOUD_PROVIDERS).find((cp) => cp.providerName === provider);
-  if (providerEntry && providerEntry.policyFile) {
-    const providerPolicyPath = path.join(ROOT, "nemoclaw-blueprint", "policies", providerEntry.policyFile);
-    console.log(`  Applying ${providerEntry.label} egress policy...`);
-    run(`openshell policy set --policy "${providerPolicyPath}" "${sandboxName}"`, { ignoreError: true });
-  }
-
+  registry.updateSandbox(sandboxName, { model, provider, policies: selectedPresets });
   await setupOpenclaw(sandboxName, model, provider);
-  await setupPolicies(sandboxName);
   printDashboard(sandboxName, model, provider);
 }
 
